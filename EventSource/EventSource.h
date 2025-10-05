@@ -17,7 +17,7 @@ typedef enum {
 // ---------------------------------------------------------------------------------------------------------------------
 
 /// Describes an Event received from an EventSource
-@interface Event : NSObject
+@interface EventSourceEvent : NSObject
 
 /// The Event ID
 @property (nonatomic, strong, nullable) NSString *id;
@@ -55,7 +55,7 @@ typedef enum {
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-typedef void (^EventSourceEventHandler)(Event *_Nonnull event);
+typedef void (^EventSourceEventHandler)(EventSourceEvent *_Nonnull event);
 
 // ---------------------------------------------------------------------------------------------------------------------
 

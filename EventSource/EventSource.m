@@ -36,7 +36,7 @@ static NSString *const ESEventRetryKey = @"retry";
 @property (nonatomic, strong) id lastEventID;
 
 - (void)_open;
-- (void)_dispatchEvent:(Event *)e;
+- (void)_dispatchEvent:(EventSourceEvent *)e;
 
 @end
 
@@ -106,7 +106,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
     if (httpResponse.statusCode == 200) {
         // Opened
-        Event *e = [Event new];
+        EventSourceEvent *e = [[EventSourceEvent alloc] init];
         e.readyState = kEventStateOpen;
 
         [self _dispatchEvent:e type:ReadyStateEvent];
@@ -123,7 +123,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     NSString *eventString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     NSArray *lines = [eventString componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]];
 
-    Event *event = [Event new];
+    EventSourceEvent *event = [[EventSourceEvent alloc] init];
     event.readyState = kEventStateOpen;
 
     for (NSString *line in lines) {
@@ -137,7 +137,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
                     [self _dispatchEvent:event];
                 });
 
-                event = [Event new];
+                event = [[EventSourceEvent alloc] init];
                 event.readyState = kEventStateOpen;
             }
             continue;
@@ -180,7 +180,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
         return;
     }
 
-    Event *e = [Event new];
+    EventSourceEvent *e = [[EventSourceEvent alloc] init];
     e.readyState = kEventStateClosed;
     e.error = error ?: [NSError errorWithDomain:@""
                                   code:e.readyState
@@ -220,7 +220,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     self.eventSourceTask = [session dataTaskWithRequest:request];
     [self.eventSourceTask resume];
 
-    Event *e = [Event new];
+    EventSourceEvent *e = [[EventSourceEvent alloc] init];
     e.readyState = kEventStateConnecting;
 
     [self _dispatchEvent:e type:ReadyStateEvent];
@@ -230,7 +230,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     }
 }
 
-- (void)_dispatchEvent:(Event *)event type:(NSString * const)type
+- (void)_dispatchEvent:(EventSourceEvent *)event type:(NSString * const)type
 {
     NSArray *errorHandlers = self.listeners[type];
     for (EventSourceEventHandler handler in errorHandlers) {
@@ -240,7 +240,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     }
 }
 
-- (void)_dispatchEvent:(Event *)event
+- (void)_dispatchEvent:(EventSourceEvent *)event
 {
     [self _dispatchEvent:event type:MessageEvent];
 
@@ -253,7 +253,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-@implementation Event
+@implementation EventSourceEvent
 
 - (NSString *)description
 {
