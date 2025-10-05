@@ -50,6 +50,8 @@ typedef enum {
 @property (nonatomic, assign) NSTimeInterval timeoutInterval;
 /// The request retry interval in seconds.  Default: 1 seconds.
 @property (nonatomic, assign) NSTimeInterval retryInterval;
+/// The maximum number of retries.  Default: 0.
+@property (nonatomic, assign) NSUInteger retryCount;
 
 @end
 

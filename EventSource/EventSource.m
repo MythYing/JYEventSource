@@ -40,6 +40,12 @@ static NSString *const ESEventRetryKey = @"retry";
 
 @end
 
+@interface EventSourceConfig ()
+
+@property (nonatomic, assign) NSUInteger currentRetryCount;
+
+@end
+
 @implementation EventSource
 
 + (instancetype)eventSourceWithConfig:(EventSourceConfig *)config {
@@ -189,10 +195,13 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     [self _dispatchEvent:e type:ReadyStateEvent];
     [self _dispatchEvent:e type:ErrorEvent];
 
-    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.config.retryInterval * NSEC_PER_SEC));
-    dispatch_after(popTime, connectionQueue, ^(void){
-        [self _open];
-    });
+    if (self.config.currentRetryCount < self.config.retryCount) {
+        self.config.currentRetryCount++;
+        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.config.retryInterval * NSEC_PER_SEC));
+        dispatch_after(popTime, connectionQueue, ^(void){
+            [self _open];
+        });
+    }
 }
 
 // -------------------------------------------------------------------------------------------------------------------------------------
@@ -291,6 +300,8 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
         _method = @"GET";
         _timeoutInterval = ES_DEFAULT_TIMEOUT;
         _retryInterval = ES_RETRY_INTERVAL;
+        _retryCount = 0;
+        _currentRetryCount = 0;
     }
     return self;
 }
