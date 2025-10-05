@@ -29,11 +29,10 @@ static NSString *const ESEventRetryKey = @"retry";
     dispatch_queue_t connectionQueue;
 }
 
-@property (nonatomic, strong) NSURL *eventURL;
+@property (nonatomic, strong) EventSourceConfig *config;
+
 @property (nonatomic, strong) NSURLSessionDataTask *eventSourceTask;
 @property (nonatomic, strong) NSMutableDictionary *listeners;
-@property (nonatomic, assign) NSTimeInterval timeoutInterval;
-@property (nonatomic, assign) NSTimeInterval retryInterval;
 @property (nonatomic, strong) id lastEventID;
 
 - (void)_open;
@@ -43,34 +42,20 @@ static NSString *const ESEventRetryKey = @"retry";
 
 @implementation EventSource
 
-+ (instancetype)eventSourceWithURL:(NSURL *)URL
-{
-    return [[EventSource alloc] initWithURL:URL];
++ (instancetype)eventSourceWithConfig:(EventSourceConfig *)config {
+    return [[EventSource alloc] initWithConfig:config];
 }
 
-+ (instancetype)eventSourceWithURL:(NSURL *)URL timeoutInterval:(NSTimeInterval)timeoutInterval
-{
-    return [[EventSource alloc] initWithURL:URL timeoutInterval:timeoutInterval];
-}
-
-- (instancetype)initWithURL:(NSURL *)URL
-{
-    return [self initWithURL:URL timeoutInterval:ES_DEFAULT_TIMEOUT];
-}
-
-- (instancetype)initWithURL:(NSURL *)URL timeoutInterval:(NSTimeInterval)timeoutInterval
-{
+- (instancetype)initWithConfig:(EventSourceConfig *)config {
     self = [super init];
     if (self) {
+        _config = config;
         _listeners = [NSMutableDictionary dictionary];
-        _eventURL = URL;
-        _timeoutInterval = timeoutInterval;
-        _retryInterval = ES_RETRY_INTERVAL;
 
         messageQueue = dispatch_queue_create("co.cwbrn.eventsource-queue", DISPATCH_QUEUE_SERIAL);
         connectionQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
 
-        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(_retryInterval * NSEC_PER_SEC));
+        dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(config.retryInterval * NSEC_PER_SEC));
         dispatch_after(popTime, connectionQueue, ^(void){
             [self _open];
         });
@@ -180,7 +165,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
                     event.id = value;
                     self.lastEventID = event.id;
                 } else if ([key isEqualToString:ESEventRetryKey]) {
-                    self.retryInterval = [value doubleValue];
+                    self.config.retryInterval = [value doubleValue];
                 }
             }
         }
@@ -204,7 +189,7 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     [self _dispatchEvent:e type:ReadyStateEvent];
     [self _dispatchEvent:e type:ErrorEvent];
 
-    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(_retryInterval * NSEC_PER_SEC));
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(self.config.retryInterval * NSEC_PER_SEC));
     dispatch_after(popTime, connectionQueue, ^(void){
         [self _open];
     });
@@ -215,9 +200,15 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
 - (void)_open
 {
     wasClosed = NO;
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.eventURL
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.config.url
                                                            cachePolicy:NSURLRequestReloadIgnoringCacheData
-                                                       timeoutInterval:self.timeoutInterval];
+                                                       timeoutInterval:self.config.timeoutInterval];
+    request.HTTPMethod = self.config.method ?: @"GET";
+    request.HTTPBody = self.config.body;
+    for (NSString *key in self.config.headers) {
+        [request setValue:self.config.headers[key] forHTTPHeaderField:key];
+    }
+
     if (self.lastEventID) {
         [request setValue:self.lastEventID forHTTPHeaderField:@"Last-Event-ID"];
     }
@@ -285,6 +276,23 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
             self.id,
             self.event,
             self.data];
+}
+
+@end
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+@implementation EventSourceConfig
+
+- (instancetype)init
+{
+    self = [super init];
+    if (self) {
+        _method = @"GET";
+        _timeoutInterval = ES_DEFAULT_TIMEOUT;
+        _retryInterval = ES_RETRY_INTERVAL;
+    }
+    return self;
 }
 
 @end
