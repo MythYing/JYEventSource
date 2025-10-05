@@ -31,6 +31,7 @@ static NSString *const ESEventRetryKey = @"retry";
 
 @property (nonatomic, strong) EventSourceConfig *config;
 
+@property (nonatomic, strong) NSURLSession *eventSourceSession;
 @property (nonatomic, strong) NSURLSessionDataTask *eventSourceTask;
 @property (nonatomic, strong) NSMutableDictionary *listeners;
 @property (nonatomic, strong) id lastEventID;
@@ -102,6 +103,9 @@ static NSString *const ESEventRetryKey = @"retry";
 {
     wasClosed = YES;
     [self.eventSourceTask cancel];
+    self.eventSourceTask = nil;
+    [self.eventSourceSession invalidateAndCancel];
+    self.eventSourceSession = nil;
 }
 
 // -----------------------------------------------------------------------------------------------------------------------------------------
@@ -222,11 +226,18 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
         [request setValue:self.lastEventID forHTTPHeaderField:@"Last-Event-ID"];
     }
 
-    NSURLSession *session = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]
-                                                          delegate:self
-                                                     delegateQueue:[NSOperationQueue currentQueue]];
-
-    self.eventSourceTask = [session dataTaskWithRequest:request];
+    if (self.eventSourceTask) {
+        [self.eventSourceTask cancel];
+        self.eventSourceTask = nil;
+    }
+    if (self.eventSourceSession) {
+        [self.eventSourceSession invalidateAndCancel];
+        self.eventSourceSession = nil;
+    }
+    self.eventSourceSession = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration defaultSessionConfiguration]
+                                                            delegate:self
+                                                       delegateQueue:[NSOperationQueue currentQueue]];
+    self.eventSourceTask = [self.eventSourceSession dataTaskWithRequest:request];
     [self.eventSourceTask resume];
 
     EventSourceEvent *e = [[EventSourceEvent alloc] init];
