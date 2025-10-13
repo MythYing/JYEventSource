@@ -87,6 +87,14 @@ typedef void (^EventSourceEventHandler)(EventSourceEvent *_Nonnull event);
 /// @param handler The handler for the Open event.
 - (void)onOpen:(EventSourceEventHandler _Nonnull)handler;
 
+/// Registers an event handler for the Close event.
+///
+/// @param handler The handler for the Close event.
+- (void)onClose:(EventSourceEventHandler _Nonnull)handler;
+
+/// Registers an event handler for the ReadyStateChanged event.
+///
+/// @param handler The handler for the ReadyStateChanged event.
 - (void)onReadyStateChanged:(EventSourceEventHandler _Nonnull)handler;
 
 /// Registers an event handler for a named event.
@@ -105,4 +113,5 @@ typedef void (^EventSourceEventHandler)(EventSourceEvent *_Nonnull event);
 extern NSString * _Nonnull const MessageEvent;
 extern NSString * _Nonnull const ErrorEvent;
 extern NSString * _Nonnull const OpenEvent;
+extern NSString * _Nonnull const CloseEvent;
 extern NSString * _Nonnull const ReadyStateEvent;

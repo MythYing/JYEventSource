@@ -94,6 +94,11 @@ static NSString *const ESEventRetryKey = @"retry";
     [self addEventListener:OpenEvent handler:handler];
 }
 
+- (void)onClose:(EventSourceEventHandler)handler
+{
+    [self addEventListener:CloseEvent handler:handler];
+}
+
 - (void)onReadyStateChanged:(EventSourceEventHandler)handler
 {
     [self addEventListener:ReadyStateEvent handler:handler];
@@ -189,15 +194,22 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
     if (wasClosed) {
         return;
     }
-
+    
+    if (!error) {
+        EventSourceEvent *e = [[EventSourceEvent alloc] init];
+        e.readyState = kEventStateClosed;
+        [self _dispatchEvent:e type:ReadyStateEvent];
+        [self _dispatchEvent:e type:CloseEvent];
+        return;
+    }
+    
     EventSourceEvent *e = [[EventSourceEvent alloc] init];
     e.readyState = kEventStateClosed;
-    e.error = error ?: [NSError errorWithDomain:@""
-                                  code:e.readyState
-                              userInfo:@{ NSLocalizedDescriptionKey: @"Connection with the event source was closed." }];
-
-    [self _dispatchEvent:e type:ReadyStateEvent];
+    e.error = error;
+    
     [self _dispatchEvent:e type:ErrorEvent];
+    [self _dispatchEvent:e type:ReadyStateEvent];
+    [self _dispatchEvent:e type:CloseEvent];
 
     if (self.config.currentRetryCount < self.config.retryCount) {
         self.config.currentRetryCount++;
@@ -252,8 +264,8 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
 
 - (void)_dispatchEvent:(EventSourceEvent *)event type:(NSString * const)type
 {
-    NSArray *errorHandlers = self.listeners[type];
-    for (EventSourceEventHandler handler in errorHandlers) {
+    NSArray *handlers = self.listeners[type];
+    for (EventSourceEventHandler handler in handlers) {
         dispatch_async(connectionQueue, ^{
             handler(event);
         });
@@ -322,4 +334,5 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
 NSString *const MessageEvent = @"message";
 NSString *const ErrorEvent = @"error";
 NSString *const OpenEvent = @"open";
+NSString *const CloseEvent = @"close";
 NSString *const ReadyStateEvent = @"readyState";
