@@ -37,7 +37,6 @@ static NSString *const ESEventRetryKey = @"retry";
 @property (nonatomic, strong) id lastEventID;
 
 - (void)_open;
-- (void)_dispatchEvent:(EventSourceEvent *)e;
 
 @end
 
@@ -147,10 +146,11 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
         }
 
         if (!line || line.length == 0) {
-            if (event.data != nil) {
-                dispatch_async(messageQueue, ^{
-                    [self _dispatchEvent:event];
-                });
+            if (event.data.length > 0) {
+                [self _dispatchEvent:event type:MessageEvent];
+                if (event.event.length > 0) {
+                    [self _dispatchEvent:event type:event.event];
+                }
 
                 event = [[EventSourceEvent alloc] init];
                 event.readyState = kEventStateOpen;
@@ -266,18 +266,9 @@ didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSe
 {
     NSArray *handlers = self.listeners[type];
     for (EventSourceEventHandler handler in handlers) {
-        dispatch_async(connectionQueue, ^{
+        dispatch_async(messageQueue, ^{
             handler(event);
         });
-    }
-}
-
-- (void)_dispatchEvent:(EventSourceEvent *)event
-{
-    [self _dispatchEvent:event type:MessageEvent];
-
-    if (event.event != nil) {
-        [self _dispatchEvent:event type:event.event];
     }
 }
 
